@@ -2,12 +2,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_NAME="Auto Resize Window"
-EXECUTABLE_NAME="AutoResizeWindow"
+APP_NAME="Viewport"
+EXECUTABLE_NAME="Viewport"
 APP_DIR="$ROOT_DIR/.build/$APP_NAME.app"
 BINARY_PATH="$ROOT_DIR/.build/release/$EXECUTABLE_NAME"
 
-swift build --package-path "$ROOT_DIR" -c release
+swift build --package-path "$ROOT_DIR" -c release --product "$EXECUTABLE_NAME"
 
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"

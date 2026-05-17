@@ -13,7 +13,7 @@ enum WindowResizeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .accessibilityPermissionMissing:
-            "Auto Resize Window needs Accessibility permission before it can resize other apps."
+            "Viewport needs Accessibility permission before it can resize other apps."
         case .noTargetApplication:
             "No target application was found. Switch to the app you want to resize and try again."
         case .noFocusedWindow:

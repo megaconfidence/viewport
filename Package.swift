@@ -3,16 +3,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "AutoResizeWindow",
+    name: "Viewport",
     platforms: [
         .macOS(.v13)
     ],
     products: [
-        .executable(name: "AutoResizeWindow", targets: ["AutoResizeWindow"])
+        .executable(name: "Viewport", targets: ["Viewport"])
     ],
     targets: [
         .executableTarget(
-            name: "AutoResizeWindow",
+            name: "Viewport",
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("ApplicationServices")

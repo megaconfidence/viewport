@@ -1,4 +1,4 @@
-# Auto Resize Window
+# Viewport
 
 A native macOS menu bar app for resizing the active window to common landscape and vertical sizes.
 
@@ -29,21 +29,21 @@ scripts/build-app.sh
 The app bundle is created at:
 
 ```text
-.build/Auto Resize Window.app
+.build/Viewport.app
 ```
 
 Move that app into `/Applications` if you want it to behave like a normal installed app.
 
 ## Usage
 
-1. Launch `Auto Resize Window.app`.
+1. Launch `Viewport.app`.
 2. Grant Accessibility permission when prompted.
 3. Click the menu bar icon.
 4. Choose a target size.
 
 To choose which sizes appear in the menu, select `Choose Presets...`. The selected presets are stored in user defaults.
 
-For Chrome, Firefox, or other apps that need the fallback, macOS may also ask whether Auto Resize Window can control that app. Allow it so the app can use the browser's native AppleScript `bounds` support.
+For Chrome, Firefox, or other apps that need the fallback, macOS may also ask whether Viewport can control that app. Allow it so the app can use the browser's native AppleScript `bounds` support.
 
 If permission is not granted, open:
 
@@ -51,7 +51,7 @@ If permission is not granted, open:
 System Settings > Privacy & Security > Accessibility
 ```
 
-Then enable `Auto Resize Window` and choose a size again.
+Then enable `Viewport` and choose a size again.
 
 ## How It Works
 

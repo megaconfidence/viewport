@@ -25,7 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let button = statusItem.button {
             button.image = NSImage(
                 systemSymbolName: "arrow.up.left.and.arrow.down.right",
-                accessibilityDescription: "Auto Resize Window"
+                accessibilityDescription: "Viewport"
             )
             button.imagePosition = .imageOnly
         }
@@ -37,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func rebuildMenu() {
         menu.removeAllItems()
 
-        let titleItem = NSMenuItem(title: "Auto Resize Window", action: nil, keyEquivalent: "")
+        let titleItem = NSMenuItem(title: "Viewport", action: nil, keyEquivalent: "")
         titleItem.isEnabled = false
         menu.addItem(titleItem)
         menu.addItem(.separator())
@@ -82,7 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        let quitItem = NSMenuItem(title: "Quit Auto Resize Window", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Quit Viewport", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
     }
@@ -186,7 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let alert = NSAlert()
         alert.messageText = "Accessibility Permission Required"
-        alert.informativeText = "Enable Auto Resize Window in System Settings > Privacy & Security > Accessibility, then choose a size again."
+        alert.informativeText = "Enable Viewport in System Settings > Privacy & Security > Accessibility, then choose a size again."
         alert.addButton(withTitle: "Open Settings")
         alert.addButton(withTitle: "Cancel")
 
