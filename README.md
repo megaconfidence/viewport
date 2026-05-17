@@ -1,30 +1,67 @@
 # Auto Resize Window
 
-https://user-images.githubusercontent.com/17744578/174408067-a1681e21-26fb-4b8f-8656-d9df4a9d9607.mp4
+A native macOS menu bar app for resizing the active window to common landscape and vertical sizes.
 
-> This only works on Mac OS
+The original AppleScript version depended on each app exposing scriptable window bounds. This rewrite uses the macOS Accessibility API first, then falls back to AppleScript bounds for scriptable apps such as Chrome and Firefox when Accessibility reports success but does not actually resize the window.
 
-This is an AppleScript app that automatically resizes the active window to various 16:9 aspect ratios. This is useful for automatically resizing an app window before a screencast or screen share.
+## Features
+
+- Native macOS menu bar app
+- Configurable list of predefined landscape and vertical presets
+- Centers the resized window on its current display
+- Respects the visible screen area, including the menu bar and Dock
+- Scales a preset down when the current display is too small
+- Uses Accessibility APIs with an AppleScript fallback for scriptable apps
+
+## Requirements
+
+- macOS 13 or newer
+- Xcode Command Line Tools or Xcode with Swift support
+- Accessibility permission for the built app
+- Automation permission for apps that need the AppleScript fallback
+
+## Build
+
+```sh
+scripts/build-app.sh
+```
+
+The app bundle is created at:
+
+```text
+.build/Auto Resize Window.app
+```
+
+Move that app into `/Applications` if you want it to behave like a normal installed app.
 
 ## Usage
 
-1. Download the app zip file [here](https://github.com/megaconfidence/auto-resize-window/raw/main/downloads/Auto%20Resize%20Window.zip)
-1. Extract the app from the zip file
-1. Move the app to your `Applications` folder
-1. Open up Spotlight (`cmd+spacebar`) and type in `Auto Resize Window`
-1. Hit enter
-1. Select a resolution and profit
+1. Launch `Auto Resize Window.app`.
+2. Grant Accessibility permission when prompted.
+3. Click the menu bar icon.
+4. Choose a target size.
 
-## Important ⚠️
+To choose which sizes appear in the menu, select `Choose Presets...`. The selected presets are stored in user defaults.
 
-You will need to give this application access to `System Events` and `Finder` on the first run. On macOs Ventura (13.1) and higher, go to `System Settings` > `Privacy & Security` > `Security` then allow _Auto Resize Window_ to run
+For Chrome, Firefox, or other apps that need the fallback, macOS may also ask whether Auto Resize Window can control that app. Allow it so the app can use the browser's native AppleScript `bounds` support.
 
-You can always take a look at the source code [here](src/scrpt.scpt) to be sure this program is not malicious.
+If permission is not granted, open:
 
-|                                                   |                                          |
-| :-----------------------------------------------: | :--------------------------------------: |
-| ![Permission one](src/images/System%20Events.png) | ![Permission two](src/images/Finder.png) |
+```text
+System Settings > Privacy & Security > Accessibility
+```
 
-## Known Issues
+Then enable `Auto Resize Window` and choose a size again.
 
-- The app currently can't resize apps that don't support AppleScript i.e `Electron` apps.
+## How It Works
+
+The app reads the focused window through `AXUIElementCreateSystemWide`, then sets its `kAXSizeAttribute` and `kAXPositionAttribute`. If the menu bar interaction causes focus to move away from the target app, it falls back to the last frontmost application observed by `NSWorkspace`.
+
+Before Accessibility resizing, the app temporarily disables `AXEnhancedUserInterface` for the target app when present, then applies a `size -> position -> size` sequence. It reads the frame back afterward; if the resize did not apply, it tries AppleScript `bounds` against the target app.
+
+## Known Limitations
+
+- Full-screen Spaces windows generally cannot be resized this way.
+- Minimized windows are not targeted.
+- Some apps intentionally restrict Accessibility-driven window changes.
+- Nonstandard windows, games, and protected system UI may refuse resize or move requests.
