@@ -54,6 +54,8 @@ extension ResizePreset {
         "1080x1920"
     ]
 
+    static let defaultLastUsedID = "1920x1080"
+
     static func predefined(for orientation: ResizePresetOrientation) -> [ResizePreset] {
         predefined.filter { $0.orientation == orientation }
     }

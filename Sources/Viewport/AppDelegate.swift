@@ -6,8 +6,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let menu = NSMenu()
     private let presetStore = ResizePresetStore()
     private let resizer = WindowResizer()
+    private lazy var hotKeyManager = GlobalHotKeyManager(store: presetStore)
     private var lastActiveApplication: NSRunningApplication?
-    private var presetEditorWindowController: PresetEditorWindowController?
+    private var settingsWindowController: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -16,6 +17,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         startTrackingActiveApplication()
         startObservingPresetChanges()
         startObservingWindowVisibility()
+        startObservingGlobalHotKey()
+        startObservingHotKeyManager()
+        _ = hotKeyManager // force creation so registration happens at launch
 
         if !AccessibilityPermission.isTrusted {
             AccessibilityPermission.requestAccess()
@@ -70,9 +74,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        let editPresetsItem = NSMenuItem(title: "Choose Presets\u{2026}", action: #selector(openPresetEditor), keyEquivalent: ",")
-        editPresetsItem.target = self
-        menu.addItem(editPresetsItem)
+        let settingsItem = NSMenuItem(title: "Settings\u{2026}", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
 
         if !AccessibilityPermission.isTrusted {
             menu.addItem(.separator())
@@ -106,8 +110,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
+        apply(preset.preset, markLastUsed: true)
+    }
+
+    @objc private func applyLastUsedPresetFromShortcut(_ notification: Notification) {
+        rememberCurrentFrontmostApplication()
+
+        guard let preset = presetStore.lastUsedPreset else {
+            NSSound.beep()
+            return
+        }
+
+        apply(preset, markLastUsed: false)
+    }
+
+    private func apply(_ preset: ResizePreset, markLastUsed: Bool) {
         do {
-            try resizer.resizeFocusedWindow(to: preset.preset.size, preferredApplication: lastActiveApplication)
+            try resizer.resizeFocusedWindow(to: preset.size, preferredApplication: lastActiveApplication)
+            if markLastUsed {
+                presetStore.markLastUsed(preset)
+            }
         } catch WindowResizeError.accessibilityPermissionMissing {
             AccessibilityPermission.requestAccess()
             showPermissionAlert()
@@ -116,14 +138,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func openPresetEditor() {
-        if presetEditorWindowController == nil {
-            presetEditorWindowController = PresetEditorWindowController(store: presetStore)
+    @objc private func openSettings() {
+        if settingsWindowController == nil {
+            settingsWindowController = SettingsWindowController(store: presetStore, hotKeyManager: hotKeyManager)
         }
 
         promoteToRegular()
-        presetEditorWindowController?.showWindow(nil)
-        presetEditorWindowController?.window?.makeKeyAndOrderFront(nil)
+        settingsWindowController?.showWindow(nil)
+        settingsWindowController?.window?.makeKeyAndOrderFront(nil)
     }
 
     @objc private func openAccessibilitySettings() {
@@ -184,11 +206,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             name: ResizePresetStore.didChangeNotification,
             object: presetStore
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(shortcutDidChange(_:)),
+            name: ResizePresetStore.shortcutDidChangeNotification,
+            object: presetStore
+        )
     }
 
     @objc private func presetsDidChange(_ notification: Notification) {
         rebuildMenu()
-        presetEditorWindowController?.refresh()
+        settingsWindowController?.refresh()
+    }
+
+    @objc private func shortcutDidChange(_ notification: Notification) {
+        rebuildMenu()
+    }
+
+    @objc private func hotKeyManagerErrorChanged(_ notification: Notification) {
+        rebuildMenu()
     }
 
     private func startObservingWindowVisibility() {
@@ -196,6 +232,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self,
             selector: #selector(windowWillClose(_:)),
             name: NSWindow.willCloseNotification,
+            object: nil
+        )
+    }
+
+    private func startObservingGlobalHotKey() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applyLastUsedPresetFromShortcut(_:)),
+            name: GlobalHotKey.didPressApplyLastPresetNotification,
+            object: nil
+        )
+    }
+
+    private func startObservingHotKeyManager() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(hotKeyManagerErrorChanged(_:)),
+            name: GlobalHotKeyManager.errorDidChangeNotification,
             object: nil
         )
     }
@@ -227,6 +281,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let item = NSMenuItem(title: preset.title, action: #selector(resizeToPreset(_:)), keyEquivalent: "")
         item.target = self
         item.representedObject = ResizePresetMenuValue(preset: preset)
+
+        if presetStore.lastUsedPresetID == preset.id,
+           hotKeyManager.registrationError == nil,
+           let shortcut = presetStore.applyLastPresetShortcut,
+           let keyEquivalent = shortcut.menuKeyEquivalent {
+            item.keyEquivalent = keyEquivalent
+            item.keyEquivalentModifierMask = shortcut.modifierFlags
+        }
 
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)

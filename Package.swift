@@ -15,7 +15,8 @@ let package = Package(
             name: "Viewport",
             linkerSettings: [
                 .linkedFramework("AppKit"),
-                .linkedFramework("ApplicationServices")
+                .linkedFramework("ApplicationServices"),
+                .linkedFramework("Carbon")
             ]
         )
     ]
