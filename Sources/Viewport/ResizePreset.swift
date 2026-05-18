@@ -13,7 +13,7 @@ struct ResizePreset {
     }
 
     var title: String {
-        "\(width) x \(height)"
+        "\(width) \u{00D7} \(height)"
     }
 
     var size: CGSize {
@@ -36,11 +36,13 @@ extension ResizePreset {
         ResizePreset(width: 2560, height: 1440),
         ResizePreset(width: 1920, height: 1080),
         ResizePreset(width: 1600, height: 900),
+        ResizePreset(width: 1440, height: 900),
         ResizePreset(width: 1366, height: 768),
         ResizePreset(width: 1280, height: 720),
         ResizePreset(width: 1440, height: 2560),
         ResizePreset(width: 1080, height: 1920),
         ResizePreset(width: 900, height: 1600),
+        ResizePreset(width: 900, height: 1440),
         ResizePreset(width: 768, height: 1366),
         ResizePreset(width: 720, height: 1280)
     ]

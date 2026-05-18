@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         rebuildMenu()
         startTrackingActiveApplication()
         startObservingPresetChanges()
+        startObservingWindowVisibility()
 
         if !AccessibilityPermission.isTrusted {
             AccessibilityPermission.requestAccess()
@@ -23,26 +24,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func configureStatusItem() {
         if let button = statusItem.button {
-            button.image = NSImage(
-                systemSymbolName: "arrow.up.left.and.arrow.down.right",
-                accessibilityDescription: "Viewport"
-            )
+            let baseImage = NSImage(systemSymbolName: "aspectratio", accessibilityDescription: "Viewport")
+                ?? NSImage(systemSymbolName: "rectangle.inset.filled", accessibilityDescription: "Viewport")
+                ?? NSImage(systemSymbolName: "arrow.up.left.and.arrow.down.right", accessibilityDescription: "Viewport")
+            let configured = baseImage?.withSymbolConfiguration(
+                NSImage.SymbolConfiguration(pointSize: 15, weight: .medium)
+            ) ?? baseImage
+            configured?.isTemplate = true
+            button.image = configured
             button.imagePosition = .imageOnly
+            button.toolTip = "Viewport"
         }
 
         menu.delegate = self
+        menu.autoenablesItems = false
         statusItem.menu = menu
     }
 
     private func rebuildMenu() {
         menu.removeAllItems()
 
-        let titleItem = NSMenuItem(title: "Viewport", action: nil, keyEquivalent: "")
-        titleItem.isEnabled = false
-        menu.addItem(titleItem)
-        menu.addItem(.separator())
-
-        var needsSectionSeparator = false
+        var needsSectionSpacing = false
 
         for orientation in ResizePresetOrientation.allCases {
             let presets = presetStore.enabledPresets(for: orientation)
@@ -50,17 +52,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 continue
             }
 
-            if needsSectionSeparator {
+            if needsSectionSpacing {
                 menu.addItem(.separator())
             }
 
-            menu.addItem(sectionTitleItem(orientation.rawValue))
+            menu.addItem(sectionHeaderItem(orientation.rawValue))
             presets.map(menuItem).forEach(menu.addItem)
 
-            needsSectionSeparator = true
+            needsSectionSpacing = true
         }
 
-        if !needsSectionSeparator {
+        if !needsSectionSpacing {
             let emptyItem = NSMenuItem(title: "No Presets Enabled", action: nil, keyEquivalent: "")
             emptyItem.isEnabled = false
             menu.addItem(emptyItem)
@@ -68,19 +70,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        let editPresetsItem = NSMenuItem(title: "Choose Presets...", action: #selector(openPresetEditor), keyEquivalent: ",")
+        let editPresetsItem = NSMenuItem(title: "Choose Presets\u{2026}", action: #selector(openPresetEditor), keyEquivalent: ",")
         editPresetsItem.target = self
         menu.addItem(editPresetsItem)
 
+        if !AccessibilityPermission.isTrusted {
+            menu.addItem(.separator())
+            let permissionItem = NSMenuItem(
+                title: "Grant Accessibility Permission\u{2026}",
+                action: #selector(openAccessibilitySettings),
+                keyEquivalent: ""
+            )
+            permissionItem.target = self
+            menu.addItem(permissionItem)
+        }
+
         menu.addItem(.separator())
 
-        let permissionTitle = AccessibilityPermission.isTrusted ? "Accessibility Permission Granted" : "Grant Accessibility Permission..."
-        let permissionItem = NSMenuItem(title: permissionTitle, action: #selector(openAccessibilitySettings), keyEquivalent: "")
-        permissionItem.target = self
-        permissionItem.isEnabled = !AccessibilityPermission.isTrusted
-        menu.addItem(permissionItem)
-
-        menu.addItem(.separator())
+        let aboutItem = NSMenuItem(title: "About Viewport", action: #selector(showAbout), keyEquivalent: "")
+        aboutItem.target = self
+        menu.addItem(aboutItem)
 
         let quitItem = NSMenuItem(title: "Quit Viewport", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
@@ -112,7 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             presetEditorWindowController = PresetEditorWindowController(store: presetStore)
         }
 
-        NSApp.activate(ignoringOtherApps: true)
+        promoteToRegular()
         presetEditorWindowController?.showWindow(nil)
         presetEditorWindowController?.window?.makeKeyAndOrderFront(nil)
     }
@@ -120,6 +129,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openAccessibilitySettings() {
         AccessibilityPermission.requestAccess()
         AccessibilityPermission.openSettings()
+    }
+
+    @objc private func showAbout() {
+        promoteToRegular()
+
+        let url = URL(string: "https://github.com/megaconfidence/viewport")!
+        let linkText = "github.com/megaconfidence/viewport"
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+
+        let credits = NSMutableAttributedString(
+            string: linkText,
+            attributes: [
+                .link: url,
+                .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+                .foregroundColor: NSColor.linkColor,
+                .paragraphStyle: paragraph
+            ]
+        )
+
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .credits: credits
+        ])
     }
 
     @objc private func quit() {
@@ -159,16 +191,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         presetEditorWindowController?.refresh()
     }
 
+    private func startObservingWindowVisibility() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowWillClose(_:)),
+            name: NSWindow.willCloseNotification,
+            object: nil
+        )
+    }
+
+    @objc private func windowWillClose(_ notification: Notification) {
+        // isVisible is still true inside willClose; defer one runloop tick.
+        DispatchQueue.main.async { [weak self] in
+            self?.demoteIfNoVisibleWindows()
+        }
+    }
+
+    private func promoteToRegular() {
+        if NSApp.activationPolicy() != .regular {
+            NSApp.setActivationPolicy(.regular)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func demoteIfNoVisibleWindows() {
+        let hasVisibleWindow = NSApp.windows.contains { window in
+            window.isVisible && window.styleMask.contains(.titled)
+        }
+        if !hasVisibleWindow && NSApp.activationPolicy() != .accessory {
+            NSApp.setActivationPolicy(.accessory)
+        }
+    }
+
     private func menuItem(for preset: ResizePreset) -> NSMenuItem {
         let item = NSMenuItem(title: preset.title, action: #selector(resizeToPreset(_:)), keyEquivalent: "")
         item.target = self
         item.representedObject = ResizePresetMenuValue(preset: preset)
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        ]
+        item.attributedTitle = NSAttributedString(string: preset.title, attributes: attributes)
         return item
     }
 
-    private func sectionTitleItem(_ title: String) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    private func sectionHeaderItem(_ title: String) -> NSMenuItem {
+        if #available(macOS 14.0, *) {
+            return NSMenuItem.sectionHeader(title: title)
+        }
+
+        let item = NSMenuItem()
         item.isEnabled = false
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold),
+            .foregroundColor: NSColor.secondaryLabelColor,
+            .kern: 0.4
+        ]
+        item.attributedTitle = NSAttributedString(string: title.uppercased(), attributes: attributes)
         return item
     }
 
@@ -186,7 +265,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let alert = NSAlert()
         alert.messageText = "Accessibility Permission Required"
-        alert.informativeText = "Enable Viewport in System Settings > Privacy & Security > Accessibility, then choose a size again."
+        alert.informativeText = "Enable Viewport in System Settings \u{203A} Privacy & Security \u{203A} Accessibility, then choose a size again."
         alert.addButton(withTitle: "Open Settings")
         alert.addButton(withTitle: "Cancel")
 

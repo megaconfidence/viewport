@@ -36,6 +36,11 @@ final class ResizePresetStore {
         save()
     }
 
+    func resetToDefaults() {
+        enabledPresetIDs = ResizePreset.defaultEnabledIDs
+        save()
+    }
+
     private func save() {
         defaults.set(Array(enabledPresetIDs).sorted(), forKey: defaultsKey)
         NotificationCenter.default.post(name: Self.didChangeNotification, object: self)
