@@ -178,6 +178,12 @@ Issues and pull requests welcome at [github.com/megaconfidence/viewport](https:/
 
 <br />
 
+## License
+
+[MIT](LICENSE) © megaconfidence
+
+<br />
+
 <div align="center">
   <sub>Made with care for the macOS menu bar.</sub>
 </div>
