@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let presetStore = ResizePresetStore()
     private let resizer = WindowResizer()
     private lazy var hotKeyManager = GlobalHotKeyManager(store: presetStore)
+    private let launchAtLoginManager = LaunchAtLoginManager()
     private var lastActiveApplication: NSRunningApplication?
     private var settingsWindowController: SettingsWindowController?
 
@@ -140,7 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openSettings() {
         if settingsWindowController == nil {
-            settingsWindowController = SettingsWindowController(store: presetStore, hotKeyManager: hotKeyManager)
+            settingsWindowController = SettingsWindowController(store: presetStore, hotKeyManager: hotKeyManager, launchAtLoginManager: launchAtLoginManager)
         }
 
         promoteToRegular()
