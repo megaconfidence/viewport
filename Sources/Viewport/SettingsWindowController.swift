@@ -4,13 +4,16 @@ import AppKit
 final class SettingsWindowController: NSWindowController {
     private let store: ResizePresetStore
     private let hotKeyManager: GlobalHotKeyManager
+    private let launchAtLoginManager: LaunchAtLoginManager
     private var presetCheckboxes: [(preset: ResizePreset, checkbox: NSButton)] = []
     private weak var shortcutRecorder: ShortcutRecorderView?
     private weak var shortcutErrorLabel: NSTextField?
+    private weak var launchAtLoginCheckbox: NSButton?
 
-    init(store: ResizePresetStore, hotKeyManager: GlobalHotKeyManager) {
+    init(store: ResizePresetStore, hotKeyManager: GlobalHotKeyManager, launchAtLoginManager: LaunchAtLoginManager) {
         self.store = store
         self.hotKeyManager = hotKeyManager
+        self.launchAtLoginManager = launchAtLoginManager
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 380, height: 340),
@@ -41,6 +44,7 @@ final class SettingsWindowController: NSWindowController {
         }
         shortcutRecorder?.setShortcut(store.applyLastPresetShortcut)
         updateShortcutErrorLabel()
+        launchAtLoginCheckbox?.state = launchAtLoginManager.isEnabled ? .on : .off
     }
 
     private func buildContent() {
@@ -68,6 +72,9 @@ final class SettingsWindowController: NSWindowController {
         let shortcutSection = buildShortcutSection()
         shortcutSection.translatesAutoresizingMaskIntoConstraints = false
 
+        let generalSection = buildGeneralSection()
+        generalSection.translatesAutoresizingMaskIntoConstraints = false
+
         let resetButton = NSButton(title: "Reset", target: self, action: #selector(resetToDefaults))
         resetButton.bezelStyle = .rounded
         resetButton.controlSize = .small
@@ -88,6 +95,7 @@ final class SettingsWindowController: NSWindowController {
 
         contentView.addSubview(presetStack)
         contentView.addSubview(shortcutSection)
+        contentView.addSubview(generalSection)
         contentView.addSubview(footer)
 
         NSLayoutConstraint.activate([
@@ -99,7 +107,11 @@ final class SettingsWindowController: NSWindowController {
             shortcutSection.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             shortcutSection.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
 
-            footer.topAnchor.constraint(equalTo: shortcutSection.bottomAnchor, constant: 14),
+            generalSection.topAnchor.constraint(equalTo: shortcutSection.bottomAnchor, constant: 14),
+            generalSection.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            generalSection.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+
+            footer.topAnchor.constraint(equalTo: generalSection.bottomAnchor, constant: 14),
             footer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             footer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
             footer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -14)
@@ -176,6 +188,34 @@ final class SettingsWindowController: NSWindowController {
         errorLabel.widthAnchor.constraint(equalTo: section.widthAnchor).isActive = true
 
         return section
+    }
+
+    private func buildGeneralSection() -> NSView {
+        let title = sectionTitleLabel("GENERAL")
+
+        let checkbox = NSButton(checkboxWithTitle: "Launch at Login", target: self, action: #selector(toggleLaunchAtLogin(_:)))
+        checkbox.state = launchAtLoginManager.isEnabled ? .on : .off
+        checkbox.translatesAutoresizingMaskIntoConstraints = false
+        launchAtLoginCheckbox = checkbox
+
+        let section = NSStackView(views: [title, checkbox])
+        section.orientation = .vertical
+        section.alignment = .leading
+        section.spacing = 6
+
+        return section
+    }
+
+    @objc private func toggleLaunchAtLogin(_ sender: NSButton) {
+        let enable = sender.state == .on
+        do {
+            try launchAtLoginManager.setEnabled(enable)
+        } catch {
+            sender.state = enable ? .off : .on
+            let alert = NSAlert(error: error)
+            alert.messageText = enable ? "Could Not Enable Launch at Login" : "Could Not Disable Launch at Login"
+            alert.runModal()
+        }
     }
 
     private func sectionTitleLabel(_ text: String) -> NSTextField {
